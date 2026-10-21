@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: write
+  # Pulls the private FLIR Poky toolchain image for linux-cortexa9t2hf.
+  packages: read
 
 jobs:
   source:
@@ -26,8 +28,9 @@ jobs:
           path: out/*-source.tar.xz
 
   # Built from the source archive, not the checkout, so the published source matches the binaries.
-  # Each build runs in a container with the oldest glibc among that arch's PAM consumers:
-  # Ubuntu 22.04 for x86_64, Ubuntu 18.04 (SLA camera) for aarch64, on a native arm runner.
+  # Each build runs in a container with the oldest glibc among that target's PAM consumers:
+  # Ubuntu 22.04 for x86_64, Ubuntu 18.04 (SLA camera) for aarch64 on a native arm runner, and
+  # FLIR's Poky 3.3 SDK image for cortexa9t2hf.
   # docker run instead of a job container: Node 24 actions don't run on Ubuntu 18.04's glibc.
   linux:
     needs: source
@@ -35,16 +38,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: linux-x86_64
+          - target: x86_64
             runner: ubuntu-24.04
             image: ubuntu:22.04
-            packages: build-essential nasm pkg-config
-          - platform: linux-aarch64
+          - target: aarch64
             runner: ubuntu-24.04-arm
             image: ubuntu:18.04
-            packages: build-essential pkg-config
+          - target: cortexa9t2hf
+            runner: ubuntu-24.04
+            image: ghcr.io/aquanta-vision/toolchain-poky-3.3-cortexa9t2hf:55
     runs-on: ${{ matrix.runner }}
     steps:
+      # The Poky image is about 10 GB; drop preinstalled SDKs we don't use to make room.
+      - name: Free disk space
+        if: startsWith(matrix.image, 'ghcr.io/')
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Log in to GHCR
+        if: startsWith(matrix.image, 'ghcr.io/')
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
       - uses: actions/download-artifact@v8
         with:
           name: source
@@ -56,22 +71,16 @@ jobs:
 
       - name: Build and audit in ${{ matrix.image }}
         run: |
-          docker run --rm -v "$PWD:/work" -w /work \
-            -e SOURCE_ROOT -e PLATFORM=${{ matrix.platform }} -e PACKAGES="${{ matrix.packages }}" \
-            -e DEBIAN_FRONTEND=noninteractive \
-            ${{ matrix.image }} bash -euc '
-              apt-get update -qq
-              apt-get install -y -qq --no-install-recommends $PACKAGES
-              $SOURCE_ROOT/pam-build/scripts/build_linux.sh $SOURCE_ROOT out/$PLATFORM
-              $SOURCE_ROOT/pam-build/scripts/audit_linux.sh out/$PLATFORM'
+          docker run --rm -v "$PWD:/work" -w /work ${{ matrix.image }} \
+            bash "${SOURCE_ROOT}pam-build/scripts/ci_linux.sh" ${{ matrix.target }} "$SOURCE_ROOT" out/linux-${{ matrix.target }}
 
       - name: Package
-        run: tar -cJf "${SOURCE_ROOT%/}-${{ matrix.platform }}.tar.xz" -C out ${{ matrix.platform }}
+        run: tar -cJf "${SOURCE_ROOT%/}-linux-${{ matrix.target }}.tar.xz" -C out linux-${{ matrix.target }}
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.platform }}
-          path: pam-ffmpeg-*-${{ matrix.platform }}.tar.xz
+          name: linux-${{ matrix.target }}
+          path: pam-ffmpeg-*-linux-${{ matrix.target }}.tar.xz
 
   publish:
     if: startsWith(github.ref, 'refs/tags/')
