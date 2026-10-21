@@ -1,0 +1,87 @@
+name: Release
+
+# Builds FFmpeg from the pinned upstream release (ffmpeg.env) for every PAM platform, audits each
+# build against SPEC's licensing rules, and on a tag publishes everything as a GitHub Release.
+# Tag format: ffmpeg-<FFMPEG_VERSION>-pam.<N>, e.g. ffmpeg-7.1.5-pam.1.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['ffmpeg-*']
+
+permissions:
+  contents: write
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble source archive
+        run: scripts/make_source.sh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: out/*-source.tar.xz
+
+  # Built from the source archive, not the checkout, so the published source matches the binaries.
+  # ubuntu-22.04's glibc is older than every PAM Linux x86_64 consumer.
+  linux-x86_64:
+    needs: source
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y nasm pkg-config
+
+      - name: Extract source
+        run: |
+          tar -xJf *-source.tar.xz
+          echo "SOURCE_ROOT=$(ls -d pam-ffmpeg-*/)" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: $SOURCE_ROOT/pam-build/scripts/build_linux.sh $SOURCE_ROOT out/linux-x86_64
+
+      - name: Audit
+        run: $SOURCE_ROOT/pam-build/scripts/audit_linux.sh out/linux-x86_64
+
+      - name: Package
+        run: tar -cJf "${SOURCE_ROOT%/}-linux-x86_64.tar.xz" -C out linux-x86_64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: pam-ffmpeg-*-linux-x86_64.tar.xz
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [source, linux-x86_64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Check tag matches ffmpeg.env
+        run: |
+          source ffmpeg.env
+          [[ "$GITHUB_REF_NAME" =~ ^ffmpeg-${FFMPEG_VERSION//./\\.}-pam\.[0-9]+$ ]] || {
+            echo "::error::tag $GITHUB_REF_NAME does not match FFMPEG_VERSION=$FFMPEG_VERSION"
+            exit 1
+          }
+
+      - name: Write checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes ""
