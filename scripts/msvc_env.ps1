@@ -14,13 +14,16 @@ $oldPath = $env:Path -split ';'
 $devEnv = cmd /c "`"$vcvarsall`" $Arch >nul && set"
 if ($LASTEXITCODE -ne 0) { throw "vcvarsall.bat $Arch failed" }
 
-# PATH additions go through GITHUB_PATH; GitHub does not take PATH from GITHUB_ENV.
+# PATH additions go through GITHUB_PATH; GitHub does not take PATH from GITHUB_ENV. Each line
+# is prepended in turn, so they are written in reverse to keep vcvarsall's order (for x64_arm64
+# the arm64-targeting cl.exe must come before the x64 one).
 foreach ($line in $devEnv) {
   if ($line -notmatch '^([^=]+)=(.*)$') { continue }
   $name, $value = $Matches[1], $Matches[2]
   if ($name -eq 'Path') {
-    $value -split ';' | Where-Object { $_ -and ($oldPath -notcontains $_) } |
-      Add-Content -Path $env:GITHUB_PATH -Encoding utf8
+    $added = @($value -split ';' | Where-Object { $_ -and ($oldPath -notcontains $_) })
+    [array]::Reverse($added)
+    $added | Add-Content -Path $env:GITHUB_PATH -Encoding utf8
   } elseif ([Environment]::GetEnvironmentVariable($name) -ne $value) {
     Add-Content -Path $env:GITHUB_ENV -Value "$name=$value" -Encoding utf8
   }
