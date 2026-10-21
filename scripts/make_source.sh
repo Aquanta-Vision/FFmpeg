@@ -39,6 +39,15 @@ fetchAmfHeaders() {
   cp "$clone_dir/LICENSE.txt" "$stage_dir/amf-headers/LICENSE.txt"
 }
 
+# Build tool only (GPL, never linked): translates FFmpeg's GNU-syntax ARM assembly for MSVC's
+# armasm64, which the Windows arm64 build needs.
+fetchGasPreprocessor() {
+  mkdir -p "$stage_dir/gas-preprocessor"
+  curl -sSfL "https://raw.githubusercontent.com/FFmpeg/gas-preprocessor/${GAS_PREPROCESSOR_COMMIT}/gas-preprocessor.pl" \
+    -o "$stage_dir/gas-preprocessor/gas-preprocessor.pl"
+  chmod +x "$stage_dir/gas-preprocessor/gas-preprocessor.pl"
+}
+
 copyBuildScripts() {
   mkdir -p "$stage_dir/pam-build"
   cp -r "$repo_root/scripts" "$repo_root/ffmpeg.env" "$repo_root/README.md" "$stage_dir/pam-build/"
@@ -52,6 +61,7 @@ mkdir -p "$stage_dir"
 fetchFfmpeg
 fetchNvCodecHeaders
 fetchAmfHeaders
+fetchGasPreprocessor
 copyBuildScripts
 packSource
 rm -rf "$work_dir"

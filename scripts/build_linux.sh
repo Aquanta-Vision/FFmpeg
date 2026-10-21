@@ -15,6 +15,8 @@ out_dir="$(mkdir -p "$3" && cd "$3" && pwd)"
 source "$script_dir/../ffmpeg.env"
 # shellcheck source=common_flags.sh
 source "$script_dir/common_flags.sh"
+# shellcheck source=gpu_vendor.sh
+source "$script_dir/gpu_vendor.sh"
 # shellcheck source=linux_toolchain.sh
 source "$script_dir/linux_toolchain.sh"
 
@@ -23,8 +25,7 @@ ffmpeg_dir="$source_root/ffmpeg-${FFMPEG_VERSION}"
 build_dir="$source_root/build-$platform"
 headers_prefix="$source_root/headers-prefix"
 
-# x86_64: NVENC/NVDEC and AMF are header-only, FFmpeg dlopens the vendor driver at runtime, so
-# nothing extra is linked or shipped.
+# x86_64: NVIDIA and AMD GPU codecs (gpu_vendor.sh).
 # aarch64 and cortexa9t2hf: the SoC's hardware codec through V4L2 M2M, using only the kernel
 # uapi headers.
 selectPlatformFlags() {
@@ -35,14 +36,7 @@ selectPlatformFlags() {
   )
   case "$target" in
     x86_64)
-      PLATFORM_CONFIGURE_FLAGS=(
-        --enable-ffnvcodec
-        --enable-nvenc
-        --enable-cuvid
-        --enable-amf
-        --enable-encoder=h264_nvenc,h264_amf
-        --enable-decoder=h264_cuvid
-      )
+      PLATFORM_CONFIGURE_FLAGS=("${GPU_VENDOR_CONFIGURE_FLAGS[@]}")
       ;;
     aarch64)
       PLATFORM_CONFIGURE_FLAGS=("${v4l2_m2m_flags[@]}")
@@ -67,9 +61,7 @@ selectPlatformFlags() {
 
 installHardwareHeaders() {
   [ "$target" = x86_64 ] || return 0
-  make -C "$source_root/nv-codec-headers" install PREFIX="$headers_prefix" >/dev/null
-  mkdir -p "$headers_prefix/include"
-  cp -r "$source_root/amf-headers/AMF" "$headers_prefix/include/"
+  installGpuVendorHeaders "$source_root" "$headers_prefix"
 }
 
 # configure only prints a one-line reason; the failing check is at the end of config.log.

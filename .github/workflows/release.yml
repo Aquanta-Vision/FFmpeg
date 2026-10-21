@@ -82,9 +82,85 @@ jobs:
           name: linux-${{ matrix.target }}
           path: pam-ffmpeg-*-linux-${{ matrix.target }}.tar.xz
 
+  # MSVC under MSYS2 (FFmpeg's configure needs a POSIX shell). arm64 is cross-compiled on x64,
+  # then audited on an arm64 runner in windows-arm64-audit.
+  windows:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x64
+            msvc_arch: x64
+          - target: arm64
+            msvc_arch: x64_arm64
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          path-type: inherit
+          release: false
+          update: false
+          install: make diffutils nasm pkgconf perl
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: source
+
+      - name: Extract source
+        run: |
+          tar -xJf *-source.tar.xz
+          echo "SOURCE_ROOT=$(ls -d pam-ffmpeg-*/)" >> "$GITHUB_ENV"
+
+      - name: Load MSVC ${{ matrix.msvc_arch }} environment
+        shell: pwsh
+        run: '& "$env:SOURCE_ROOT/pam-build/scripts/msvc_env.ps1" ${{ matrix.msvc_arch }}'
+
+      - name: Build and audit
+        run: |
+          "${SOURCE_ROOT}pam-build/scripts/ci_windows.sh" ${{ matrix.target }} "$SOURCE_ROOT" out/windows-${{ matrix.target }}
+
+      - name: Package
+        run: tar -cJf "${SOURCE_ROOT%/}-windows-${{ matrix.target }}.tar.xz" -C out windows-${{ matrix.target }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-${{ matrix.target }}
+          path: pam-ffmpeg-*-windows-${{ matrix.target }}.tar.xz
+
+  # The x64 runner cannot execute arm64 binaries, so the arm64 build is audited here.
+  windows-arm64-audit:
+    needs: windows
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '{source,windows-arm64}'
+          merge-multiple: true
+
+      - name: Extract source and build
+        run: |
+          tar -xJf *-source.tar.xz
+          tar -xJf *-windows-arm64.tar.xz
+          echo "SOURCE_ROOT=$(ls -d pam-ffmpeg-*/)" >> "$GITHUB_ENV"
+
+      - name: Load MSVC arm64 environment
+        shell: pwsh
+        run: '& "$env:SOURCE_ROOT/pam-build/scripts/msvc_env.ps1" arm64'
+
+      - name: Audit
+        run: '"${SOURCE_ROOT}pam-build/scripts/audit_windows.sh" windows-arm64'
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [source, linux]
+    needs: [source, linux, windows, windows-arm64-audit]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
