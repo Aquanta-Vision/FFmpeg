@@ -72,6 +72,7 @@ installHardwareHeaders() {
   cp -r "$source_root/amf-headers/AMF" "$headers_prefix/include/"
 }
 
+# configure only prints a one-line reason; the failing check is at the end of config.log.
 configureFfmpeg() {
   mkdir -p "$build_dir"
   cd "$build_dir"
@@ -79,7 +80,10 @@ configureFfmpeg() {
     --prefix="$out_dir" \
     --extra-cflags="-I$headers_prefix/include" \
     "${COMMON_CONFIGURE_FLAGS[@]}" \
-    "${PLATFORM_CONFIGURE_FLAGS[@]}"
+    "${PLATFORM_CONFIGURE_FLAGS[@]}" || {
+    tail -n 40 "$build_dir/ffbuild/config.log"
+    exit 1
+  }
 }
 
 compileAndInstall() {

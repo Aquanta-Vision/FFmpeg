@@ -18,7 +18,8 @@ usePublicUbuntuMirror() {
     "$codename" "$codename-updates" "$codename-security" > /etc/apt/sources.list
 }
 
-# qemu-user runs the cross-built audit program; gcc is the host compiler configure expects.
+# Cross builds still need a host compiler for configure, and qemu-user runs the cross-built
+# audit program.
 installBuildTools() {
   local packages
   case "$target" in
@@ -26,7 +27,7 @@ installBuildTools() {
     aarch64) packages=(build-essential pkg-config) ;;
     cortexa9t2hf)
       usePublicUbuntuMirror
-      packages=(gcc make pkg-config qemu-user)
+      packages=(build-essential pkg-config qemu-user)
       ;;
   esac
   export DEBIAN_FRONTEND=noninteractive
