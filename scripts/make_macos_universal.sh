@@ -12,6 +12,7 @@ out_dir="$3"
 
 copyArm64Tree() {
   rm -rf "$out_dir"
+  mkdir -p "$(dirname "$out_dir")"
   cp -R "$arm64_dir" "$out_dir"
 }
 

@@ -217,9 +217,34 @@ jobs:
           name: macos-universal
           path: pam-ffmpeg-*-macos-universal.tar.xz
 
+  # Device and simulator slices in one dynamic .xcframework per library.
+  ios:
+    needs: source
+    runs-on: macos-26
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: source
+
+      - name: Extract source
+        run: |
+          tar -xJf *-source.tar.xz
+          echo "SOURCE_ROOT=$(ls -d pam-ffmpeg-*/)" >> "$GITHUB_ENV"
+
+      - name: Build and audit
+        run: '"${SOURCE_ROOT}pam-build/scripts/ci_ios.sh" "$SOURCE_ROOT" out/ios'
+
+      - name: Package
+        run: tar -cJf "${SOURCE_ROOT%/}-ios.tar.xz" -C out ios
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ios
+          path: pam-ffmpeg-*-ios.tar.xz
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [source, linux, windows, windows-arm64-audit, android, macos]
+    needs: [source, linux, windows, windows-arm64-audit, android, macos, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
