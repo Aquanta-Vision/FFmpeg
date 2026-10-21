@@ -158,9 +158,42 @@ jobs:
       - name: Audit
         run: '"${SOURCE_ROOT}pam-build/scripts/audit_windows.sh" windows-arm64'
 
+  # NDK and API level pinned in ffmpeg.env to match PAM's Android build.
+  android:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86, x86_64]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: source
+
+      - name: Install build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nasm
+
+      - name: Extract source
+        run: |
+          tar -xJf *-source.tar.xz
+          echo "SOURCE_ROOT=$(ls -d pam-ffmpeg-*/)" >> "$GITHUB_ENV"
+
+      - name: Build and audit
+        run: |
+          "${SOURCE_ROOT}pam-build/scripts/ci_android.sh" ${{ matrix.abi }} "$SOURCE_ROOT" out/android-${{ matrix.abi }}
+
+      - name: Package
+        run: tar -cJf "${SOURCE_ROOT%/}-android-${{ matrix.abi }}.tar.xz" -C out android-${{ matrix.abi }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-${{ matrix.abi }}
+          path: pam-ffmpeg-*-android-${{ matrix.abi }}.tar.xz
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [source, linux, windows, windows-arm64-audit]
+    needs: [source, linux, windows, windows-arm64-audit, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
