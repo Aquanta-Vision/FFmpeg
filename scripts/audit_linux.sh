@@ -10,7 +10,7 @@ platform_dir="$(cd "$1" && pwd)"
 failures=0
 
 # FFmpeg's own libraries plus the C runtime; anything else is an unreviewed dependency.
-allowed_deps_pattern='^(libav(codec|format|util)|libsw(scale|resample)|libc|libm|libdl|libpthread|librt|ld-linux-x86-64|linux-vdso)\.so'
+allowed_deps_pattern='^(libav(codec|format|util)|libsw(scale|resample)|libc|libm|libdl|libpthread|librt|ld-linux-(x86-64|aarch64)|linux-vdso)\.so'
 
 fail() {
   echo "FAIL $*"

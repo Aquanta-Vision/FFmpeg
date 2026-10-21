@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds the linux-x86_64 FFmpeg shared libraries from an extracted release source archive.
+# Builds the linux-<arch> FFmpeg shared libraries from an extracted release source archive, for
+# the machine's own architecture (uname -m). Supported: x86_64, aarch64.
 #
 # Usage: scripts/build_linux.sh <source_root> <out_dir>
 #   source_root: the extracted pam-ffmpeg-<version> directory (from make_source.sh)
@@ -14,22 +15,43 @@ source "$script_dir/../ffmpeg.env"
 # shellcheck source=common_flags.sh
 source "$script_dir/common_flags.sh"
 
+arch="$(uname -m)"
+platform="linux-$arch"
 ffmpeg_dir="$source_root/ffmpeg-${FFMPEG_VERSION}"
-build_dir="$source_root/build-linux-x86_64"
+build_dir="$source_root/build-$platform"
 headers_prefix="$source_root/headers-prefix"
 
-# NVENC/NVDEC and AMF are header-only here: FFmpeg dlopens the vendor driver at runtime, so
+# x86_64: NVENC/NVDEC and AMF are header-only, FFmpeg dlopens the vendor driver at runtime, so
 # nothing extra is linked or shipped.
-PLATFORM_CONFIGURE_FLAGS=(
-  --enable-ffnvcodec
-  --enable-nvenc
-  --enable-cuvid
-  --enable-amf
-  --enable-encoder=h264_nvenc,h264_amf
-  --enable-decoder=h264_cuvid
-)
+# aarch64: the SoC's hardware codec through V4L2 M2M, using only the kernel uapi headers.
+selectPlatformFlags() {
+  case "$arch" in
+    x86_64)
+      PLATFORM_CONFIGURE_FLAGS=(
+        --enable-ffnvcodec
+        --enable-nvenc
+        --enable-cuvid
+        --enable-amf
+        --enable-encoder=h264_nvenc,h264_amf
+        --enable-decoder=h264_cuvid
+      )
+      ;;
+    aarch64)
+      PLATFORM_CONFIGURE_FLAGS=(
+        --enable-v4l2-m2m
+        --enable-encoder=h264_v4l2m2m
+        --enable-decoder=h264_v4l2m2m
+      )
+      ;;
+    *)
+      echo "Unsupported architecture: $arch" >&2
+      exit 1
+      ;;
+  esac
+}
 
 installHardwareHeaders() {
+  [ "$arch" = x86_64 ] || return 0
   make -C "$source_root/nv-codec-headers" install PREFIX="$headers_prefix" >/dev/null
   mkdir -p "$headers_prefix/include"
   cp -r "$source_root/amf-headers/AMF" "$headers_prefix/include/"
@@ -60,14 +82,15 @@ writeLicenseAndBuildInfo() {
   cp "$ffmpeg_dir/COPYING.LGPLv2.1" "$out_dir/LICENSE"
   {
     echo "FFmpeg ${FFMPEG_VERSION} (https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz, sha256 ${FFMPEG_SHA256})"
-    echo "nv-codec-headers ${NV_CODEC_HEADERS_TAG}, AMF headers ${AMF_TAG}"
-    echo "Platform: linux-x86_64"
+    [ "$arch" != x86_64 ] || echo "nv-codec-headers ${NV_CODEC_HEADERS_TAG}, AMF headers ${AMF_TAG}"
+    echo "Platform: $platform"
     echo "Compiler: $(cc --version | head -1)"
     echo "glibc: $(ldd --version | head -1)"
     echo "Configure: $(sed -n 's/^#define FFMPEG_CONFIGURATION //p' "$build_dir/config.h")"
   } > "$out_dir/BUILDINFO.txt"
 }
 
+selectPlatformFlags
 installHardwareHeaders
 configureFfmpeg
 compileAndInstall
