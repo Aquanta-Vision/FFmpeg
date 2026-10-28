@@ -13,7 +13,7 @@ failures=0
 
 # FFmpeg's own DLLs, the MSVC/UCRT runtime and Windows system DLLs; anything else is an
 # unreviewed dependency.
-allowed_deps_pattern='^(av(codec|format|util)|sw(scale|resample))-[0-9]+\.dll$|^(kernel32|user32|advapi32|ole32|oleaut32|bcrypt|ws2_32|mfplat|vcruntime140(_1)?|api-ms-win-[a-z0-9-]+)\.dll$'
+allowed_deps_pattern='^(av(codec|format|util)|sw(scale|resample))_pam-[0-9]+\.dll$|^(kernel32|user32|advapi32|ole32|oleaut32|bcrypt|ws2_32|mfplat|vcruntime140(_1)?|api-ms-win-[a-z0-9-]+)\.dll$'
 
 fail() {
   echo "FAIL $*"
@@ -31,7 +31,7 @@ runCodecAudit() {
   (
     cd "$work_dir"
     cl.exe -nologo "$(winPath "$script_dir/audit/audit.c")" -I"$(winPath "$platform_dir/include")" \
-      -Feaudit.exe -link -LIBPATH:"$(winPath "$platform_dir/lib")" avcodec.lib avutil.lib
+      -Feaudit.exe -link -LIBPATH:"$(winPath "$platform_dir/lib")" avcodec_pam.lib avutil_pam.lib
   )
   PATH="$platform_dir/bin:$PATH" "$work_dir/audit.exe" || fail "codec audit"
 }

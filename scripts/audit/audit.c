@@ -17,6 +17,7 @@ static const char* const banned_configure_terms[] = {
 static const char* const allowed_h264_codecs[] = {
   "h264_nvenc",      "h264_amf",     "h264_qsv",          "h264_mf",
   "h264_mediacodec", "h264_v4l2m2m", "h264_videotoolbox", "h264_cuvid",
+  "h264_vaapi",
 };
 
 static int contains(const char* const* list, size_t count, const char* name) {

@@ -25,7 +25,8 @@ ffmpeg_dir="$source_root/ffmpeg-${FFMPEG_VERSION}"
 build_dir="$source_root/build-$platform"
 headers_prefix="$source_root/headers-prefix"
 
-# x86_64: NVIDIA and AMD GPU codecs (gpu_vendor.sh).
+# x86_64: NVIDIA and AMD GPU codecs (gpu_vendor.sh), plus Intel and AMD through VAAPI. VAAPI
+# links libva and libva-drm, so the customer machine needs them installed (libva2, libva-drm2).
 # aarch64 and cortexa9t2hf: the SoC's hardware codec through V4L2 M2M, using only the kernel
 # uapi headers.
 selectPlatformFlags() {
@@ -36,7 +37,11 @@ selectPlatformFlags() {
   )
   case "$target" in
     x86_64)
-      PLATFORM_CONFIGURE_FLAGS=("${GPU_VENDOR_CONFIGURE_FLAGS[@]}")
+      PLATFORM_CONFIGURE_FLAGS=(
+        "${GPU_VENDOR_CONFIGURE_FLAGS[@]}"
+        --enable-vaapi
+        --enable-encoder=h264_vaapi
+      )
       ;;
     aarch64)
       PLATFORM_CONFIGURE_FLAGS=("${v4l2_m2m_flags[@]}")
@@ -93,7 +98,7 @@ writeLicenseAndBuildInfo() {
   cp "$ffmpeg_dir/COPYING.LGPLv2.1" "$out_dir/LICENSE"
   {
     echo "FFmpeg ${FFMPEG_VERSION} (https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz, sha256 ${FFMPEG_SHA256})"
-    [ "$target" != x86_64 ] || echo "nv-codec-headers ${NV_CODEC_HEADERS_TAG}, AMF headers ${AMF_TAG}"
+    [ "$target" != x86_64 ] || echo "nv-codec-headers ${NV_CODEC_HEADERS_TAG}, AMF headers ${AMF_TAG}, libva $(pkg-config --modversion libva)"
     echo "Platform: $platform"
     echo "Compiler: $($TARGET_CC --version | head -1)"
     echo "glibc: $(targetGlibcVersion)"

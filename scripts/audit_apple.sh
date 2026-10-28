@@ -11,7 +11,7 @@ platform_dir="$(cd "$1" && pwd)"
 failures=0
 
 # FFmpeg's own dylibs by install name, plus the OS: system libraries and frameworks.
-allowed_deps_pattern='^(@rpath/lib(avcodec|avformat|avutil|swscale|swresample)\.[0-9]+\.dylib|/usr/lib/.*|/System/Library/Frameworks/.*)$'
+allowed_deps_pattern='^(@rpath/lib(avcodec|avformat|avutil|swscale|swresample)_pam\.[0-9]+\.dylib|/usr/lib/.*|/System/Library/Frameworks/.*)$'
 
 fail() {
   echo "FAIL $*"
@@ -20,11 +20,11 @@ fail() {
 
 runCodecAudit() {
   local arch audit_bin
-  for arch in $(lipo -archs "$platform_dir/lib/libavcodec.dylib"); do
+  for arch in $(lipo -archs "$platform_dir/lib/libavcodec_pam.dylib"); do
     audit_bin="$(mktemp)"
     echo "== $arch"
     clang -arch "$arch" "$script_dir/audit/audit.c" -o "$audit_bin" \
-      -I"$platform_dir/include" -L"$platform_dir/lib" -Wl,-rpath,"$platform_dir/lib" -lavcodec -lavutil
+      -I"$platform_dir/include" -L"$platform_dir/lib" -Wl,-rpath,"$platform_dir/lib" -lavcodec_pam -lavutil_pam
     arch "-$arch" "$audit_bin" || fail "codec audit ($arch)"
   done
 }

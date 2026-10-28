@@ -13,8 +13,9 @@ platform_dir="$(cd "$2" && pwd)"
 source "$script_dir/linux_toolchain.sh"
 failures=0
 
-# FFmpeg's own libraries plus the C runtime; anything else is an unreviewed dependency.
-allowed_deps_pattern='^(libav(codec|format|util)|libsw(scale|resample)|libc|libm|libdl|libpthread|librt|ld-linux-(x86-64|aarch64|armhf)|linux-vdso)\.so'
+# FFmpeg's own libraries, the C runtime, and libva for VAAPI (x86_64); anything else is an
+# unreviewed dependency.
+allowed_deps_pattern='^(libav(codec|format|util)_pam|libsw(scale|resample)_pam|libva|libva-drm|libc|libm|libdl|libpthread|librt|ld-linux-(x86-64|aarch64|armhf)|linux-vdso)\.so'
 
 fail() {
   echo "FAIL $*"
@@ -27,7 +28,7 @@ runCodecAudit() {
   # rpath-link lets a cross linker resolve libavcodec's own dependencies on the other libraries.
   $TARGET_CC "$script_dir/audit/audit.c" -o "$audit_bin" \
     -I"$platform_dir/include" -L"$platform_dir/lib" -Wl,-rpath-link,"$platform_dir/lib" \
-    -lavcodec -lavutil
+    -lavcodec_pam -lavutil_pam
   LD_LIBRARY_PATH="$platform_dir/lib" "${TARGET_RUNNER[@]}" "$audit_bin" || fail "codec audit"
 }
 

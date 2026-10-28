@@ -6,6 +6,10 @@
 #
 # There is no software H.264 or HEVC decoder or encoder: H.264 goes through platform and
 # hardware codecs only, and HEVC is not used.
+#
+# --build-suffix=_pam renames the library files (libavcodec_pam.so.61, avcodec_pam-61.dll, ...)
+# so they can sit next to a vendor SDK's own FFmpeg in one app without one copy replacing the
+# other.
 
 # shellcheck disable=SC2034
 COMMON_CONFIGURE_FLAGS=(
@@ -19,6 +23,7 @@ COMMON_CONFIGURE_FLAGS=(
   --disable-avdevice
   --disable-avfilter
   --disable-postproc
+  --build-suffix=_pam
 
   --enable-encoder=mpeg4,ffv1,rawvideo
   --enable-decoder=mpeg4,ffv1,rawvideo

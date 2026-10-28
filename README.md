@@ -21,3 +21,10 @@ Configure flags live in `scripts/common_flags.sh` plus a short platform list in 
 `scripts/build_<platform>.sh`. No GPL or nonfree components, no software H.264 or HEVC codecs,
 nothing autodetected from the build machine. `scripts/audit_<platform>.sh` enforces this on every
 build.
+
+Library files carry a `_pam` suffix (`libavcodec_pam.so.61`, `avcodec_pam-61.dll`,
+`libavcodec_pam.xcframework`, ...) so they never collide with a vendor SDK's own FFmpeg. Headers
+keep the upstream paths (`libavcodec/avcodec.h`).
+
+linux-x86_64 links libva for VAAPI encoding, so the target machine needs `libva2` and `libva-drm2`
+installed.

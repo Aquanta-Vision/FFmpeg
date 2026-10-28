@@ -12,7 +12,7 @@ simulator_build_dir="$3"
 failures=0
 
 # FFmpeg's own frameworks, plus the OS: system libraries and frameworks.
-allowed_deps_pattern='^(@rpath/lib(avcodec|avformat|avutil|swscale|swresample)\.framework/lib[a-z]+|/usr/lib/.*|/System/Library/Frameworks/.*)$'
+allowed_deps_pattern='^(@rpath/lib(avcodec|avformat|avutil|swscale|swresample)_pam\.framework/lib[a-z]+_pam|/usr/lib/.*|/System/Library/Frameworks/.*)$'
 
 fail() {
   echo "FAIL $*"
@@ -24,10 +24,10 @@ frameworkBinaries() {
 }
 
 checkBuildConfig() {
-  local codec_binary="libavcodec.xcframework/ios-arm64/libavcodec.framework/libavcodec"
+  local codec_binary="libavcodec_pam.xcframework/ios-arm64/libavcodec_pam.framework/libavcodec_pam"
   "$script_dir/audit_build_config.sh" "$device_build_dir" "$platform_dir/$codec_binary" ||
     fail "device build config audit"
-  codec_binary="libavcodec.xcframework/ios-arm64-simulator/libavcodec.framework/libavcodec"
+  codec_binary="libavcodec_pam.xcframework/ios-arm64-simulator/libavcodec_pam.framework/libavcodec_pam"
   "$script_dir/audit_build_config.sh" "$simulator_build_dir" "$platform_dir/$codec_binary" ||
     fail "simulator build config audit"
 }

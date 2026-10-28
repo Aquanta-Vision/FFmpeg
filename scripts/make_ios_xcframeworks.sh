@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Wraps the ios-arm64 and ios-simulator-arm64 trees into one dynamic .xcframework per FFmpeg
-# library (libavcodec.xcframework, ...). Dynamic frameworks keep FFmpeg a separate, replaceable
+# library (libavcodec_pam.xcframework, ...). Dynamic frameworks keep FFmpeg a separate, replaceable
 # library inside the app, which LGPL requires; the old static .a builds did not.
 #
 # Usage: scripts/make_ios_xcframeworks.sh <device_dir> <simulator_dir> <out_dir>
@@ -14,6 +14,8 @@ out_dir="$(mkdir -p "$3" && cd "$3" && pwd)"
 source "$script_dir/../ffmpeg.env"
 work_dir="$(mktemp -d)"
 libraries=(libavutil libswresample libswscale libavcodec libavformat)
+# Matches --build-suffix in common_flags.sh; header directories keep the plain names.
+library_suffix=_pam
 
 writeInfoPlist() {
   local name="$1" version="$2" platform="$3" plist="$4"
@@ -23,7 +25,7 @@ writeInfoPlist() {
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key><string>$name</string>
-  <key>CFBundleIdentifier</key><string>com.aquantavision.ffmpeg.$name</string>
+  <key>CFBundleIdentifier</key><string>com.aquantavision.ffmpeg.${name//_/-}</string>
   <key>CFBundleName</key><string>$name</string>
   <key>CFBundlePackageType</key><string>FMWK</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
@@ -47,24 +49,26 @@ relinkAsFramework() {
   codesign --force --sign - "$binary"
 }
 
-# <tree>/lib/libavcodec.dylib is a symlink to libavcodec.<major>.<minor>.<micro>.dylib.
+# <tree>/lib/libavcodec_pam.dylib is a symlink to libavcodec_pam.<major>.<minor>.<micro>.dylib.
 makeFramework() {
-  local tree="$1" name="$2" platform="$3" framework_dir="$4"
+  local tree="$1" library="$2" platform="$3" framework_dir="$4"
+  local name="$library$library_suffix"
   local dylib version
   dylib="$(cd "$tree/lib" && realpath "$name.dylib")"
   version="$(basename "$dylib" .dylib | cut -d. -f2-)"
   mkdir -p "$framework_dir/Headers"
   cp "$dylib" "$framework_dir/$name"
-  cp -R "$tree/include/$name/" "$framework_dir/Headers/"
+  cp -R "$tree/include/$library/" "$framework_dir/Headers/"
   writeInfoPlist "$name" "$version" "$platform" "$framework_dir/Info.plist"
   relinkAsFramework "$framework_dir/$name" "$name"
 }
 
 makeXcframeworks() {
-  local name
-  for name in "${libraries[@]}"; do
-    makeFramework "$device_dir" "$name" iPhoneOS "$work_dir/device/$name.framework"
-    makeFramework "$simulator_dir" "$name" iPhoneSimulator "$work_dir/simulator/$name.framework"
+  local library name
+  for library in "${libraries[@]}"; do
+    name="$library$library_suffix"
+    makeFramework "$device_dir" "$library" iPhoneOS "$work_dir/device/$name.framework"
+    makeFramework "$simulator_dir" "$library" iPhoneSimulator "$work_dir/simulator/$name.framework"
     xcodebuild -create-xcframework \
       -framework "$work_dir/device/$name.framework" \
       -framework "$work_dir/simulator/$name.framework" \

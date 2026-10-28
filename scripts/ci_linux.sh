@@ -23,7 +23,7 @@ usePublicUbuntuMirror() {
 installBuildTools() {
   local packages
   case "$target" in
-    x86_64) packages=(build-essential nasm pkg-config) ;;
+    x86_64) packages=(build-essential nasm pkg-config libva-dev) ;;
     aarch64) packages=(build-essential pkg-config) ;;
     cortexa9t2hf)
       usePublicUbuntuMirror

@@ -14,7 +14,7 @@ readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readel
 failures=0
 
 # FFmpeg's own libraries plus Android's C runtime, JNI/NDK media and logging libraries.
-allowed_deps_pattern='^(libav(codec|format|util)|libsw(scale|resample)|libc|libm|libdl|liblog|libandroid|libmediandk)\.so$'
+allowed_deps_pattern='^(libav(codec|format|util)_pam|libsw(scale|resample)_pam|libc|libm|libdl|liblog|libandroid|libmediandk)\.so$'
 
 fail() {
   echo "FAIL $*"
@@ -22,7 +22,7 @@ fail() {
 }
 
 checkBuildConfig() {
-  "$script_dir/audit_build_config.sh" "$build_dir" "$platform_dir/lib/libavcodec.so" || fail "build config audit"
+  "$script_dir/audit_build_config.sh" "$build_dir" "$platform_dir/lib/libavcodec_pam.so" || fail "build config audit"
 }
 
 checkSharedOnly() {

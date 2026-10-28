@@ -15,7 +15,7 @@ failures=0
 expected_license='LGPL version 2.1 or later'
 banned_configure_pattern='--enable-gpl|--enable-nonfree|--enable-version3|libx264|libx265|libopenh264|libfdk|libxvid'
 # Same lists as audit.c.
-allowed_h264_pattern='^h264_(nvenc|amf|qsv|mf|mediacodec|v4l2m2m|videotoolbox|cuvid)$'
+allowed_h264_pattern='^h264_(nvenc|amf|qsv|mf|mediacodec|v4l2m2m|videotoolbox|cuvid|vaapi)$'
 
 fail() {
   echo "FAIL $*"
